@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sun, Moon, Copy, Printer, Trash2, ChevronUp, ChevronDown, PenSquare, Music } from 'lucide-react';
+import { Sun, Moon, Copy, Printer, Trash2, ChevronUp, ChevronDown, PenSquare, Music, PlusCircle, MinusCircle } from 'lucide-react';
 
 // --- Constants ---
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -7,6 +7,7 @@ const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
 const MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
 const MAJOR_CHORD_TYPES = ['major', 'minor', 'minor', 'major', 'major', 'minor', 'diminished'];
 const MINOR_CHORD_TYPES = ['minor', 'diminished', 'major', 'minor', 'minor', 'major', 'major'];
+const LOCAL_STORAGE_KEY = 'onlyChordsSheetData';
 
 // --- Helper Functions ---
 const getScaleChords = (key, scaleType) => {
@@ -56,7 +57,7 @@ const ChordButton = ({ chord, index, onArm, isActive }) => (
         onClick={() => onArm(chord.name)}
     >
         {isActive && <span className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 opacity-75 blur-md animate-pulse"></span>}
-        <span className={`relative flex items-center justify-center w-5 h-5 text-xs rounded-full mr-2 ${isActive ? 'bg-white text-blue-600' : 'bg-gray-600 dark:bg-gray-500 text-white'}`}>{index + 1}</span>
+        {index !== undefined && <span className={`relative flex items-center justify-center w-5 h-5 text-xs rounded-full mr-2 ${isActive ? 'bg-white text-blue-600' : 'bg-gray-600 dark:bg-gray-500 text-white'}`}>{index + 1}</span>}
         <span className="relative">{chord.name}</span>
     </button>
 );
@@ -91,20 +92,54 @@ export default function App() {
     const [toast, setToast] = useState({ show: false, message: '' });
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [editorStep, setEditorStep] = useState('lyrics');
+    const [saveStatus, setSaveStatus] = useState('Saved');
+    const [showExtraChords, setShowExtraChords] = useState(false);
     const charWidthRef = useRef(0);
 
-    const chords = getScaleChords(scaleKey, scaleType);
+    const diatonicChords = getScaleChords(scaleKey, scaleType);
+    const chromaticChords = NOTES.flatMap(note => [
+        { name: note, type: 'major' },
+        { name: `${note}m`, type: 'minor' }
+    ]);
+
+    // --- Load from Local Storage on initial render ---
+    useEffect(() => {
+        try {
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                setScaleKey(data.scaleKey || 'C');
+                setScaleType(data.scaleType || 'major');
+                setLines(data.lines || []);
+                setLyrics(data.lyrics || '');
+                setEditorStep(data.editorStep || 'lyrics');
+            }
+        } catch (error) {
+            console.error("Failed to load from local storage", error);
+        }
+    }, []);
+
+    // --- Save to Local Storage on any change ---
+    useEffect(() => {
+        const dataToSave = { scaleKey, scaleType, lines, lyrics, editorStep };
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+            setSaveStatus('Auto-saved');
+        } catch (error) {
+            console.error("Failed to save to local storage", error);
+            setSaveStatus('Error');
+        }
+    }, [scaleKey, scaleType, lines, lyrics, editorStep]);
 
     useEffect(() => {
         document.documentElement.classList.toggle('dark', isDarkMode);
     }, [isDarkMode]);
 
     useEffect(() => {
-        // Precise character width measurement for export accuracy
         const measure = document.createElement('span');
         measure.style.fontFamily = "'Inconsolata', monospace";
-        measure.style.fontSize = '1rem'; // Match .chord-output font-size
-        measure.style.lineHeight = '1.8'; // Match .chord-output line-height
+        measure.style.fontSize = '1rem';
+        measure.style.lineHeight = '1.8';
         measure.style.whiteSpace = 'pre';
         measure.style.visibility = 'hidden';
         measure.style.position = 'absolute';
@@ -121,7 +156,7 @@ export default function App() {
             const key = e.key;
             if (key >= '1' && key <= '7') {
                 e.preventDefault();
-                const chordToArm = chords[parseInt(key, 10) - 1];
+                const chordToArm = diatonicChords[parseInt(key, 10) - 1];
                 if (chordToArm) toggleArmChord(chordToArm.name);
             } else if (key === 'Escape') {
                 e.preventDefault();
@@ -130,7 +165,7 @@ export default function App() {
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [armedChord, chords]);
+    }, [armedChord, diatonicChords]);
 
     const showToast = (message) => {
         setToast({ show: true, message });
@@ -162,14 +197,16 @@ export default function App() {
         setLines([]);
         setArmedChord(null);
         setEditorStep('lyrics');
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        showToast("Cleared and removed saved data.");
     };
 
     const lockLyrics = () => {
         const lyricLines = lyrics.split('\n');
         const newLines = lyricLines.map((text, index) => {
-            const existingLine = lines[index];
+            const existingLine = lines.find(l => l.id === index);
             return {
-                id: existingLine ? existingLine.id : index,
+                id: index,
                 text,
                 chords: existingLine ? existingLine.chords : []
             };
@@ -244,12 +281,9 @@ export default function App() {
             <div className="max-w-7xl mx-auto">
                 <header className="relative text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-                    Only
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-500 text-transparent bg-clip-text bg-[length:200%_auto] animate-gradient-flow">
-                        Chords
-                    </span>
+                        Only<span className="bg-gradient-to-r from-purple-600 to-blue-500 text-transparent bg-clip-text bg-[length:200%_auto] animate-gradient-flow">Chords</span>
                     </h1>
-                    <p className="text-lg text-gray-600 dark:text-gray-400 mt-2">A modern Chord sheet making tool for musicians & song writers.</p>
+                    <p className="text-lg text-gray-600 dark:text-gray-400 mt-2">A modern tool for musicians.</p>
                     <div className="absolute top-0 right-0">
                         <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
@@ -290,9 +324,22 @@ export default function App() {
                             <div className="sticky top-6 z-10">
                                 <div className="relative p-1 rounded-xl shadow-lg bg-gradient-to-r from-purple-600 to-blue-500">
                                     <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg rounded-lg">
-                                        <h3 className="text-lg font-semibold pt-3 mb-3 px-4">Chord Palette</h3>
-                                        <div className="flex flex-wrap gap-2 p-4 pt-0 min-h-[50px]">
-                                            {chords.map((c, i) => <ChordButton key={c.name} chord={c} index={i} onArm={toggleArmChord} isActive={armedChord === c.name} />)}
+                                        <div className="flex justify-between items-center pt-3 px-4">
+                                            <h3 className="text-lg font-semibold">Chord Palette</h3>
+                                            <button onClick={() => setShowExtraChords(!showExtraChords)} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                                                {showExtraChords ? <MinusCircle size={20} /> : <PlusCircle size={20} />}
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 p-4 pt-2 min-h-[50px]">
+                                            {diatonicChords.map((c, i) => <ChordButton key={c.name} chord={c} index={i} onArm={toggleArmChord} isActive={armedChord === c.name} />)}
+                                        </div>
+                                        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showExtraChords ? 'max-h-96' : 'max-h-0'}`}>
+                                            <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                                                 <h4 className="text-sm font-semibold mb-2 text-gray-600 dark:text-gray-400">Chromatic Chords</h4>
+                                                 <div className="flex flex-wrap gap-2">
+                                                    {chromaticChords.map((c) => <ChordButton key={c.name} chord={c} onArm={toggleArmChord} isActive={armedChord === c.name} />)}
+                                                 </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -336,6 +383,7 @@ export default function App() {
                         </div>
                         <div className="chord-output bg-gray-50 dark:bg-black/50 rounded-lg p-4 font-mono text-base leading-relaxed">
                            {lines.length > 0 && lines.map(line => <EditorLine key={line.id} line={line} onLineClick={()=>{}} onChordClick={()=>{}} />)}
+                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-right italic">{saveStatus}</div>
                         </div>
                     </div>
                 </main>
@@ -343,4 +391,3 @@ export default function App() {
         </div>
     );
 }
-
