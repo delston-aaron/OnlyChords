@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sun, Moon, Copy, Printer, Trash2, ChevronUp, ChevronDown, PenSquare, Music, PlusCircle, MinusCircle } from 'lucide-react';
+import { Sun, Moon, Copy, Printer, Trash2, ChevronUp, ChevronDown, PenSquare, Music, PlusCircle, MinusCircle, Github, X, Instagram, Linkedin } from 'lucide-react';
 
 // --- Constants ---
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -83,6 +83,55 @@ const EditorLine = ({ line, onLineClick, onChordClick }) => {
     );
 };
 
+const HowToModal = ({ show, onClose }) => {
+    if (!show) return null;
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl shadow-2xl p-8 max-w-lg w-full m-4" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-2xl font-bold">How to Use Only<span className="bg-gradient-to-r from-purple-600 to-blue-500 text-transparent bg-clip-text bg-[length:200%_auto] animate-gradient-flow">Chords</span></h3>
+                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <X size={24} />
+                    </button>
+                </div>
+                <div className="space-y-4 text-gray-600 dark:text-gray-400">
+                    <p>This app uses a two-step process for the best experience:</p>
+                    <ol className="list-decimal list-inside space-y-2">
+                        <li><strong className="text-gray-800 dark:text-gray-200">Edit Lyrics:</strong> Type or paste all your lyrics into the text area.</li>
+                        <li><strong className="text-gray-800 dark:text-gray-200">Add Chords:</strong> Click the "Add Chords" button. This locks the lyrics and lets you place chords. You can always go back to edit lyrics without losing your chord placements.</li>
+                    </ol>
+                    <h4 className="text-lg font-semibold pt-4">Keyboard Shortcuts</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                        <li><kbd className="font-mono bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5">1</kbd> - <kbd className="font-mono bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5">7</kbd>: Arm the corresponding chord from the main palette.</li>
+                        <li><kbd className="font-mono bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5">Alt</kbd> + <kbd>Number</kbd>: Type a number into the lyrics text area.</li>
+                        <li><kbd className="font-mono bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5">Esc</kbd>: Disarm any selected chord.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AppFooter = ({ onHowToClick }) => (
+    <footer className="w-full mt-16 py-8 border-t border-gray-200 dark:border-gray-800">
+        <div className="max-w-7xl mx-auto text-center text-gray-500 dark:text-gray-400 text-sm space-y-4">
+            <p>Made with ❤️ by A Musician (for Musicians)</p>
+            <div className="flex justify-center items-center gap-x-6">
+                <button onClick={onHowToClick} className="hover:text-blue-500 transition-colors">How-to & Shortcuts</button>
+                <a href="mailto:delston.aaron@gmail.com?subject=Feedback on OnlyChords" className="hover:text-blue-500 transition-colors">Report a Bug</a>
+            </div>
+            <div className="flex justify-center items-center gap-x-4 pt-2">
+                 <a href="https://www.instagram.com/delston.aaron" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><Instagram size={20} /></a>
+                 <a href="https://www.linkedin.com/in/delston-pereira/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors"><Linkedin size={20} /></a>
+                 <a href="https://github.com/delston-aaron" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 dark:hover:text-gray-300 transition-colors"><Github size={20} /></a>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 pt-4">
+                Built with React & Tailwind CSS. Icons by Lucide React.
+            </p>
+        </div>
+    </footer>
+);
+
 export default function App() {
     const [scaleKey, setScaleKey] = useState('C');
     const [scaleType, setScaleType] = useState('major');
@@ -94,6 +143,7 @@ export default function App() {
     const [editorStep, setEditorStep] = useState('lyrics');
     const [saveStatus, setSaveStatus] = useState('Saved');
     const [showExtraChords, setShowExtraChords] = useState(false);
+    const [showHowTo, setShowHowTo] = useState(false);
     const charWidthRef = useRef(0);
 
     const diatonicChords = getScaleChords(scaleKey, scaleType);
@@ -278,6 +328,7 @@ export default function App() {
     return (
         <div className="bg-gray-100 dark:bg-black text-gray-800 dark:text-gray-200 p-4 md:p-8 min-h-screen transition-colors duration-300">
             <Toast message={toast.message} show={toast.show} />
+            <HowToModal show={showHowTo} onClose={() => setShowHowTo(false)} />
             <div className="max-w-7xl mx-auto">
                 <header className="relative text-center mb-8">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
@@ -387,6 +438,7 @@ export default function App() {
                         </div>
                     </div>
                 </main>
+                <AppFooter onHowToClick={() => setShowHowTo(true)} />
             </div>
         </div>
     );
